@@ -433,7 +433,7 @@ export default function MailForm() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{"Tip: Use placeholders like {{FirstName}} which match your CSV columns."}</p>
+                    <p>Tip: Use placeholders like FirstName which match your CSV columns.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
