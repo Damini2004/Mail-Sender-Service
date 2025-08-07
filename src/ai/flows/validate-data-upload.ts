@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const ValidateDataUploadInputSchema = z.object({
-  fileData: z.string().describe('The data from the uploaded CSV or Excel file as a string.'),
+  fileData: z.string().describe('The data from the uploaded CSV file as a string.'),
 });
 export type ValidateDataUploadInput = z.infer<typeof ValidateDataUploadInputSchema>;
 
@@ -30,7 +30,7 @@ const validateDataUploadPrompt = ai.definePrompt({
   name: 'validateDataUploadPrompt',
   input: {schema: ValidateDataUploadInputSchema},
   output: {schema: ValidateDataUploadOutputSchema},
-  prompt: `You are an expert data validator. Your task is to validate the data provided from a CSV or Excel file.
+  prompt: `You are an expert data validator. Your task is to validate the data provided from a CSV file.
 
 The data should contain two columns: "email" and "last name". The email column should contain valid email addresses, and the last name column should contain professor last names.
 

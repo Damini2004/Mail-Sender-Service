@@ -178,7 +178,7 @@ export default function MailForm() {
       <form onSubmit={handleSend}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="recipients-file">1. Recipient List (CSV/Excel)</Label>
+            <Label htmlFor="recipients-file">1. Recipient List (CSV only)</Label>
             <div className="flex items-center gap-4">
                <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -190,7 +190,7 @@ export default function MailForm() {
                 className="hidden"
                 ref={recipientInputRef}
                 onChange={handleRecipientFileChange}
-                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                accept=".csv"
               />
               <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
                 {renderValidationIndicator()}
