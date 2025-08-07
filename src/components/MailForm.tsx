@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useRef, type ChangeEvent, type FormEvent, useEffect } from 'react';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -14,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Upload,
   Paperclip,
@@ -47,6 +47,12 @@ import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
+// Dynamically import CKEditor
+const CKEditor = dynamic(
+  () => import('@ckeditor/ckeditor5-react').then((mod) => mod.CKEditor),
+  { ssr: false }
+);
+
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -76,6 +82,9 @@ export default function MailForm() {
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [editorLoaded, setEditorLoaded] = useState(false);
+  const [ClassicEditor, setClassicEditor] = useState<any>(null);
+
 
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -88,6 +97,24 @@ export default function MailForm() {
   const recipientInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  
+    useEffect(() => {
+    // Dynamically import the editor build
+    import('@ckeditor/ckeditor5-build-classic')
+      .then(editorModule => {
+        setClassicEditor(editorModule.default);
+        setEditorLoaded(true);
+      })
+      .catch(error => {
+        console.error("Failed to load CKEditor", error);
+        toast({
+            title: "Editor Error",
+            description: "The text editor could not be loaded. Please refresh the page.",
+            variant: "destructive"
+        });
+      });
+  }, [toast]);
+
 
   const resetForm = () => {
     setRecipientsFile(null);
@@ -428,7 +455,7 @@ export default function MailForm() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
+                    <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()}>
                       <Upload className="mr-2 h-4 w-4" />
                       Upload File
                     </Button>
@@ -463,12 +490,21 @@ export default function MailForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="message" className="text-base font-semibold tracking-tight">Message</Label>
-            <Textarea
-              id="message"
-              placeholder={'Dear Prof. Lastname,\n\nI am writing to you today...'}
-              className="min-h-[150px]"
-              value={message} onChange={e => setMessage(e.target.value)} required
-            />
+            {editorLoaded && ClassicEditor ? (
+              <div className='prose max-w-none [&_.ck-editor__main>.ck-editor__editable]:min-h-[150px]'>
+                  <CKEditor
+                      editor={ClassicEditor}
+                      data={message}
+                      onChange={(event, editor) => {
+                          const data = editor.getData();
+                          setMessage(data);
+                      }}
+                  />
+              </div>
+
+            ) : (
+                <div className="w-full min-h-[190px] p-4 border rounded-md animate-pulse bg-muted"></div>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">

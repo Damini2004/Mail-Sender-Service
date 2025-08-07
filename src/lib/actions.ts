@@ -80,15 +80,11 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
       const personalizedMessage = messageTemplate(recipientData);
       const personalizedSubject = subjectTemplate(recipientData);
       
-      const textMessage = personalizedMessage;
-      let htmlMessage = `<p>${personalizedMessage.replace(/\n/g, '<br>')}</p>`;
-
       const mailOptions: nodemailer.SendMailOptions = {
         from: `Pure Research Insights <${process.env.EMAIL_USER}>`,
         to: email,
         subject: personalizedSubject,
-        text: textMessage,
-        html: htmlMessage, // will be populated below
+        html: personalizedMessage,
         attachments: [],
       };
       
