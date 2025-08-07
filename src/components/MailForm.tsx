@@ -369,7 +369,7 @@ export default function MailForm() {
       <div className="absolute top-4 right-4 z-10">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="text-primary bg-primary/10 hover:bg-primary/20 border-primary/20 rounded-full">
+            <Button variant="outline" size="icon" className="bg-white text-primary hover:bg-gray-100 border-border rounded-full">
               <History className="h-6 w-6" />
               <span className="sr-only">View Scheduled Email Logs</span>
             </Button>
