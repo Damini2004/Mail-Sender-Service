@@ -391,7 +391,7 @@ export default function MailForm() {
               disabled={isScheduled}
             />
             <p className="text-xs text-muted-foreground">
-              Tip: Use placeholders like '{{FirstName}}' which match your CSV columns.
+              {"Tip: Use placeholders like '{{FirstName}}' which match your CSV columns."}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
