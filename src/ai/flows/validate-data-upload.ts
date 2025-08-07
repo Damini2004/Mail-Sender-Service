@@ -1,15 +1,11 @@
 'use server';
 
 /**
- * @fileOverview A flow to validate data uploaded from a CSV file.
- *
- * - validateDataUpload - Validates the uploaded data for required columns and correct data format.
- * - ValidateDataUploadInput - The input type for the validateDataUpload function.
- * - ValidateDataUploadOutput - The return type for the validateDataUpload function.
+ * @fileOverview A flow to validate data uploaded from a CSV or XLSX file.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 
 const ValidateDataUploadInputSchema = z.object({
   fileData: z.string().describe('The data from the uploaded file, converted to a CSV string.'),
@@ -28,8 +24,8 @@ export async function validateDataUpload(input: ValidateDataUploadInput): Promis
 
 const validateDataUploadPrompt = ai.definePrompt({
   name: 'validateDataUploadPrompt',
-  input: {schema: ValidateDataUploadInputSchema},
-  output: {schema: ValidateDataUploadOutputSchema},
+  input: { schema: ValidateDataUploadInputSchema },
+  output: { schema: ValidateDataUploadOutputSchema },
   prompt: `You are a data validation expert. Your task is to validate the provided CSV-formatted data.
 
 The data MUST contain a header row with columns named "email" and "last name". These column names are case-insensitive and can have leading/trailing whitespace.
@@ -58,32 +54,30 @@ const validateDataUploadFlow = ai.defineFlow(
     inputSchema: ValidateDataUploadInputSchema,
     outputSchema: ValidateDataUploadOutputSchema,
   },
-  async input => {
+  async (input) => {
     if (!input.fileData || input.fileData.trim() === '') {
-        return {
-            isValid: false,
-            errorMessage: 'The uploaded file is empty or does not contain any data.'
-        }
+      return {
+        isValid: false,
+        errorMessage: 'The uploaded file is empty or does not contain any data.',
+      };
     }
+
     try {
-      const {output} = await validateDataUploadPrompt(input);
+      const { output } = await validateDataUploadPrompt(input);
       if (!output) {
-         return {
+        return {
           isValid: false,
           errorMessage: 'The validation service did not return a response. Please try again.',
         };
       }
       return output;
-    } catch(e) {
-      console.error("Error in validateDataUploadFlow:", e);
-      let errorMessage = 'An unexpected error occurred during validation.';
-      if (e instanceof Error) {
-        errorMessage = e.message;
-      }
+    } catch (e) {
+      console.error('Error in validateDataUploadFlow:', e);
       return {
-          isValid: false,
-          errorMessage,
-        };
+        isValid: false,
+        errorMessage:
+          e instanceof Error ? e.message : 'An unexpected error occurred during validation.',
+      };
     }
   }
 );
