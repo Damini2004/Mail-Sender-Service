@@ -15,6 +15,7 @@ const sendEmailsActionSchema = z.object({
     filename: z.string(),
     content: z.string(), // data URI
   }).optional(),
+  scheduleTime: z.number().optional(), // Unix timestamp in milliseconds
 });
 
 
@@ -26,7 +27,15 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     return { success: false, message: 'Invalid data provided.' };
   }
   
-  const { subject, message, recipientsFileContent, attachment, banner } = validation.data;
+  const { subject, message, recipientsFileContent, attachment, banner, scheduleTime } = validation.data;
+
+  if (scheduleTime) {
+    const delay = scheduleTime - Date.now();
+    if (delay > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
 
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
     return { success: false, message: 'Email credentials are not configured on the server.' };
@@ -110,8 +119,12 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     if (failedSends.length > 0) {
         console.error('Some emails failed to send:', failedSends);
     }
+    const messageText = scheduleTime 
+    ? `Your emails were scheduled and have been sent successfully! (${lines.length} total)`
+    : `Your emails have been sent! (${lines.length} total)`;
 
-    return { success: true, message: `Your emails have been sent! (${lines.length} total)` };
+
+    return { success: true, message: messageText };
   } catch (error) {
     console.error('Error sending emails:', error);
     return { success: false, message: 'Failed to send emails. Please check server logs for details.' };

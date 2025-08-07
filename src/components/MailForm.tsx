@@ -22,11 +22,17 @@ import {
   File as FileIcon,
   CheckCircle2,
   ImageIcon,
+  Calendar as CalendarIcon,
+  Clock,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendEmailsAction } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { Switch } from './ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { format } from 'date-fns';
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -34,7 +40,7 @@ const fileToBase64 = (file: File): Promise<string> => {
         reader.readAsDataURL(file);
         reader.onload = () => {
             const result = reader.result as string;
-            resolve(result); // Keep the full data URI
+            resolve(result);
         };
         reader.onerror = (error) => reject(error);
     });
@@ -53,6 +59,10 @@ export default function MailForm() {
   
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [scheduleEmail, setScheduleEmail] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
+  const [scheduledTime, setScheduledTime] = useState('');
+
 
   const recipientInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -120,6 +130,7 @@ export default function MailForm() {
         throw new Error('The uploaded file is empty or does not contain any data.');
       }
       
+      setRecipientsFile(file);
       setRecipientsFileContent(content);
 
     } catch (err: any) {
@@ -176,6 +187,33 @@ export default function MailForm() {
       return;
     }
 
+    let scheduleTimestamp: number | undefined;
+
+    if (scheduleEmail) {
+      if (!scheduledDate || !scheduledTime) {
+        toast({
+          title: 'Scheduling Incomplete',
+          description: 'Please select a date and time to schedule the emails.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const [hours, minutes] = scheduledTime.split(':').map(Number);
+      const scheduledDateTime = new Date(scheduledDate);
+      scheduledDateTime.setHours(hours, minutes, 0, 0);
+
+      if (scheduledDateTime.getTime() <= Date.now()) {
+        toast({
+          title: 'Invalid Schedule Time',
+          description: 'Please select a time in the future.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      scheduleTimestamp = scheduledDateTime.getTime();
+    }
+
+
     setIsSending(true);
 
     let attachmentPayload;
@@ -222,7 +260,8 @@ export default function MailForm() {
         message,
         recipientsFileContent: recipientsFileContent,
         attachment: attachmentPayload,
-        banner: bannerPayload
+        banner: bannerPayload,
+        scheduleTime: scheduleTimestamp
     });
     setIsSending(false);
     
@@ -239,6 +278,9 @@ export default function MailForm() {
         setBannerPreview(null);
         setSubject('');
         setMessage('');
+        setScheduleEmail(false);
+        setScheduledDate(undefined);
+        setScheduledTime('');
         if(recipientInputRef.current) recipientInputRef.current.value = '';
         if(attachmentInputRef.current) attachmentInputRef.current.value = '';
         if(bannerInputRef.current) bannerInputRef.current.value = '';
@@ -260,6 +302,13 @@ export default function MailForm() {
         return <CheckCircle2 className="h-5 w-5 text-green-500" />;
     }
     return null;
+  };
+
+  const getButtonText = () => {
+    if (isSending) {
+      return scheduleEmail ? 'Scheduling...' : 'Sending...';
+    }
+    return scheduleEmail ? 'Schedule Emails' : 'Send Emails';
   };
 
   return (
@@ -313,49 +362,100 @@ export default function MailForm() {
               Note: The greeting "Dear Prof. &lt;Lastname&gt;," will be automatically added to each email.
             </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="attachment-file">4. Attachment (Optional)</Label>
-             <div className="flex items-center gap-4">
-                <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()}>
-                    <Paperclip className="mr-2 h-4 w-4" />
-                    Add Attachment
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="attachment-file">4. Attachment (Optional)</Label>
+               <div className="flex items-center gap-4">
+                  <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()}>
+                      <Paperclip className="mr-2 h-4 w-4" />
+                      Add Attachment
+                  </Button>
+                  <Input id="attachment-file" type="file" className="hidden" ref={attachmentInputRef} onChange={handleAttachmentFileChange} />
+                  {attachmentFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
+                          <FileIcon className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{attachmentFile.name}</span>
+                      </div>
+                  )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
+              <div className="flex items-center gap-4">
+                <Button type="button" variant="outline" onClick={() => bannerInputRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Upload Banner
                 </Button>
-                <Input id="attachment-file" type="file" className="hidden" ref={attachmentInputRef} onChange={handleAttachmentFileChange} />
-                {attachmentFile && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <FileIcon className="h-4 w-4" />
-                        <span className="truncate">{attachmentFile.name}</span>
-                    </div>
+                <Input
+                  id="banner-file"
+                  type="file"
+                  className="hidden"
+                  ref={bannerInputRef}
+                  onChange={handleBannerFileChange}
+                  accept="image/*"
+                />
+                {bannerFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
+                    <FileIcon className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{bannerFile.name}</span>
+                  </div>
                 )}
+              </div>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
-            <div className="flex items-center gap-4">
-              <Button type="button" variant="outline" onClick={() => bannerInputRef.current?.click()}>
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Upload Banner
-              </Button>
-              <Input
-                id="banner-file"
-                type="file"
-                className="hidden"
-                ref={bannerInputRef}
-                onChange={handleBannerFileChange}
-                accept="image/*"
-              />
-              {bannerFile && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FileIcon className="h-4 w-4" />
-                  <span className="truncate">{bannerFile.name}</span>
-                </div>
-              )}
+
+          {bannerPreview && (
+            <div className="mt-4">
+              <Label>Banner Preview</Label>
+              <div className="mt-2 rounded-lg border p-2">
+                <Image src={bannerPreview} alt="Banner Preview" width={500} height={150} className="w-full rounded-md object-contain" />
+              </div>
             </div>
-            {bannerPreview && (
-              <div className="mt-4">
-                <Label>Banner Preview</Label>
-                <div className="mt-2 rounded-lg border p-2">
-                  <Image src={bannerPreview} alt="Banner Preview" width={500} height={150} className="w-full rounded-md object-contain" />
+          )}
+
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="schedule-email" className="font-medium">6. Schedule for Later? (Optional)</Label>
+              <Switch id="schedule-email" checked={scheduleEmail} onCheckedChange={setScheduleEmail} />
+            </div>
+            {scheduleEmail && (
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-300'>
+                <div>
+                  <Label className='text-xs'>Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !scheduledDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={scheduledDate}
+                        onSelect={setScheduledDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label className='text-xs'>Time</Label>
+                   <div className="relative">
+                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      type="time" 
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -365,9 +465,9 @@ export default function MailForm() {
           <Button
             type="submit"
             className={cn(
-              "w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-base font-medium",
-              "focus-visible:ring-primary",
-              "shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
+              "w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all text-base font-medium",
+              "focus-visible:ring-accent",
+              "shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30"
             )}
             size="lg"
             disabled={isSending || isProcessingFile || !recipientsFileContent}
@@ -377,7 +477,7 @@ export default function MailForm() {
             ) : (
               <Send className="mr-2 h-5 w-5" />
             )}
-            {isSending ? 'Sending...' : 'Send Emails'}
+            {getButtonText()}
           </Button>
         </CardFooter>
       </form>

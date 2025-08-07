@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Poppins"', 'sans-serif'],
-        headline: ['"Lexend"', 'sans-serif'],
+        sans: ['"PT Sans"', 'sans-serif'],
+        headline: ['"Space Grotesk"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
