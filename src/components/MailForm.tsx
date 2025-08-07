@@ -581,7 +581,7 @@ export default function MailForm() {
               "shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
             )}
             size="lg"
-            disabled={isSending || isProcessingFile || !recipientsFileContent}
+            disabled={isSending || isProcessingFile}
           >
             {isSending ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
