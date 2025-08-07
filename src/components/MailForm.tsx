@@ -35,7 +35,9 @@ const fileToBase64 = (file: File): Promise<string> => {
         reader.readAsDataURL(file);
         reader.onload = () => {
             const result = reader.result as string;
-            resolve(result.split(',')[1]); // Remove "data:*/*;base64," prefix
+            // remove the prefix 'data:;base64,'
+            const base64 = result.substring(result.indexOf(',') + 1);
+            resolve(base64);
         };
         reader.onerror = (error) => reject(error);
     });
@@ -59,88 +61,92 @@ export default function MailForm() {
   const recipientInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
 
+  const processAndValidateFile = async (file: File) => {
+    setValidationStatus('validating');
+    setValidationMessage('');
+
+    try {
+      const reader = new FileReader();
+      
+      const fileContentPromise = new Promise<string>((resolve, reject) => {
+        reader.onload = (event) => {
+          try {
+            if (!event.target?.result) {
+              return reject(new Error("Failed to read file."));
+            }
+
+            let csvContent = '';
+            if (file.name.endsWith('.csv')) {
+              csvContent = event.target.result as string;
+            } else if (file.name.endsWith('.xlsx')) {
+              const data = new Uint8Array(event.target.result as ArrayBuffer);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const sheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[sheetName];
+              csvContent = XLSX.utils.sheet_to_csv(worksheet);
+            } else {
+              return reject(new Error("Unsupported file type. Please upload a .csv or .xlsx file."));
+            }
+            resolve(csvContent);
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        reader.onerror = () => {
+          reject(new Error("Failed to read the file."));
+        };
+
+        if (file.name.endsWith('.csv')) {
+            reader.readAsText(file);
+        } else if(file.name.endsWith('.xlsx')) {
+            reader.readAsArrayBuffer(file);
+        } else {
+           reject(new Error("Unsupported file type. Please upload a .csv or .xlsx file."));
+        }
+      });
+      
+      const content = await fileContentPromise;
+
+      if (!content || content.trim() === '') {
+        throw new Error('The uploaded file is empty or does not contain any data.');
+      }
+      
+      setRecipientsFileContent(content);
+      const result = await validateFileAction(content);
+      
+      if (result.isValid) {
+        setValidationStatus('valid');
+        toast({
+          title: 'File Validated',
+          description: 'Your recipient file is valid and ready.',
+          variant: 'default',
+        });
+      } else {
+        throw new Error(result.errorMessage || 'The uploaded file is invalid.');
+      }
+
+    } catch (err: any) {
+      const errorMessage = err.message || 'An unexpected error occurred.';
+      setValidationStatus('invalid');
+      setValidationMessage(errorMessage);
+      toast({
+        title: 'File Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      // Also clear the file so user can re-upload
+      setRecipientsFile(null);
+      setRecipientsFileContent('');
+      if(recipientInputRef.current) recipientInputRef.current.value = '';
+    }
+  }
+
   const handleRecipientFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setRecipientsFile(file);
-    setValidationStatus('validating');
-    setValidationMessage('');
-    
-    const reader = new FileReader();
-
-    reader.onload = async (event) => {
-      let content = '';
-      try {
-        if (file.name.endsWith('.csv')) {
-          content = event.target?.result as string;
-        } else if (file.name.endsWith('.xlsx')) {
-          const data = new Uint8Array(event.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          content = XLSX.utils.sheet_to_csv(worksheet);
-        } else {
-            throw new Error("Unsupported file type. Please upload a .csv or .xlsx file.");
-        }
-
-        setRecipientsFileContent(content);
-        const result = await validateFileAction(content);
-        if (result.isValid) {
-          setValidationStatus('valid');
-          toast({
-            title: 'File Validated',
-            description: 'Your recipient file is valid and ready.',
-            variant: 'default',
-          });
-        } else {
-          setValidationStatus('invalid');
-          setValidationMessage(
-            result.errorMessage || 'The uploaded file is invalid.'
-          );
-          toast({
-            title: 'Invalid File',
-            description: result.errorMessage || 'Please check the file format and content.',
-            variant: 'destructive',
-          });
-        }
-      } catch (err: any) {
-         setValidationStatus('invalid');
-         const errorMessage = err.message || 'An error occurred while processing the file.';
-         setValidationMessage(errorMessage);
-         toast({
-            title: 'File Processing Error',
-            description: errorMessage,
-            variant: 'destructive',
-         })
-      }
-    };
-    
-    reader.onerror = () => {
-        setValidationStatus('invalid');
-        const errorMessage = 'Failed to read the file.';
-        setValidationMessage(errorMessage);
-        toast({
-            title: 'File Read Error',
-            description: errorMessage,
-            variant: 'destructive',
-        })
-    }
-
-    if (file.name.endsWith('.csv')) {
-        reader.readAsText(file);
-    } else if(file.name.endsWith('.xlsx')) {
-        reader.readAsArrayBuffer(file);
-    } else {
-        setValidationStatus('invalid');
-        const errorMessage = "Unsupported file type. Please upload a .csv or .xlsx file.";
-        setValidationMessage(errorMessage);
-        toast({
-            title: 'Invalid File Type',
-            description: errorMessage,
-            variant: 'destructive',
-        })
-    }
+    await processAndValidateFile(file);
   };
 
   const handleAttachmentFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -165,11 +171,21 @@ export default function MailForm() {
 
     let attachmentPayload;
     if (attachmentFile) {
-        const content = await fileToBase64(attachmentFile);
-        attachmentPayload = {
-            filename: attachmentFile.name,
-            content,
-        };
+        try {
+            const content = await fileToBase64(attachmentFile);
+            attachmentPayload = {
+                filename: attachmentFile.name,
+                content,
+            };
+        } catch (error) {
+            setIsSending(false);
+            toast({
+                title: 'Attachment Error',
+                description: 'Could not process the attachment file.',
+                variant: 'destructive',
+            });
+            return;
+        }
     }
 
     const result = await sendEmailsAction({
@@ -240,7 +256,7 @@ export default function MailForm() {
                 className="hidden"
                 ref={recipientInputRef}
                 onChange={handleRecipientFileChange}
-                accept=".csv,.xlsx"
+                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               />
               <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
                 {renderValidationIndicator()}
