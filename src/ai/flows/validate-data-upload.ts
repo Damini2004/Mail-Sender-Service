@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview A flow to validate data uploaded from a CSV or Excel file.
+ * @fileOverview A flow to validate data uploaded from a CSV file.
  *
  * - validateDataUpload - Validates the uploaded data for required columns and correct data format.
  * - ValidateDataUploadInput - The input type for the validateDataUpload function.
@@ -32,13 +32,19 @@ const validateDataUploadPrompt = ai.definePrompt({
   output: {schema: ValidateDataUploadOutputSchema},
   prompt: `You are an expert data validator. Your task is to validate the data provided from a CSV file.
 
-The data should contain two columns: "email" and "last name". The email column should contain valid email addresses, and the last name column should contain professor last names.
+The data must contain a header row with "email" and "last name" columns. The "email" column must contain valid email addresses. The "last name" column must contain professor last names.
 
-Given the following data:
+Here is the data:
 
-{{fileData}}
+{{{fileData}}}
 
-Determine if the data is valid based on the above criteria. If the data is invalid, provide an informative error message describing the issue.
+Please validate the data based on these requirements.
+- Check for the presence of "email" and "last name" headers.
+- Check if all rows under "email" are valid email addresses.
+- The "last name" column should not be empty.
+
+If the data is invalid, provide a clear and specific error message explaining what's wrong (e.g., "Header 'last name' is missing.", "Invalid email format on row 3.").
+If the data is valid, return true with no error message.
 
 Return a JSON object with the following format:
 {
@@ -55,7 +61,21 @@ const validateDataUploadFlow = ai.defineFlow(
     outputSchema: ValidateDataUploadOutputSchema,
   },
   async input => {
-    const {output} = await validateDataUploadPrompt(input);
-    return output!;
+    try {
+      const {output} = await validateDataUploadPrompt(input);
+      if (!output) {
+         return {
+          isValid: false,
+          errorMessage: 'The validation service did not return a response. Please try again.',
+        };
+      }
+      return output;
+    } catch(e) {
+      console.error(e);
+      return {
+          isValid: false,
+          errorMessage: 'Could not validate the file. Please ensure it is a valid CSV with "email" and "last name" columns.',
+        };
+    }
   }
 );
