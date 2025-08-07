@@ -24,6 +24,8 @@ import {
   ImageIcon,
   Calendar as CalendarIcon,
   Clock,
+  Menu,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendEmailsAction } from '@/lib/actions';
@@ -59,6 +61,7 @@ export default function MailForm() {
   
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isScheduled, setIsScheduled] = useState(false);
   const [scheduleEmail, setScheduleEmail] = useState(false);
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>();
   const [scheduledTime, setScheduledTime] = useState('');
@@ -67,6 +70,23 @@ export default function MailForm() {
   const recipientInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  
+  const resetForm = () => {
+    setRecipientsFile(null);
+    setRecipientsFileContent('');
+    setAttachmentFile(null);
+    setBannerFile(null);
+    setBannerPreview(null);
+    setSubject('');
+    setMessage('');
+    setScheduleEmail(false);
+    setScheduledDate(undefined);
+    setScheduledTime('');
+    if(recipientInputRef.current) recipientInputRef.current.value = '';
+    if(attachmentInputRef.current) attachmentInputRef.current.value = '';
+    if(bannerInputRef.current) bannerInputRef.current.value = '';
+    setIsScheduled(false);
+  };
 
   const handleRecipientFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -175,45 +195,8 @@ export default function MailForm() {
       reader.readAsDataURL(file);
     }
   };
-
-  const handleSend = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!recipientsFileContent || !subject || !message) {
-       toast({
-        title: 'Form Incomplete',
-        description: 'Please upload a recipient file and fill out the subject and message.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    let scheduleTimestamp: number | undefined;
-
-    if (scheduleEmail) {
-      if (!scheduledDate || !scheduledTime) {
-        toast({
-          title: 'Scheduling Incomplete',
-          description: 'Please select a date and time to schedule the emails.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      const [hours, minutes] = scheduledTime.split(':').map(Number);
-      const scheduledDateTime = new Date(scheduledDate);
-      scheduledDateTime.setHours(hours, minutes, 0, 0);
-
-      if (scheduledDateTime.getTime() <= Date.now()) {
-        toast({
-          title: 'Invalid Schedule Time',
-          description: 'Please select a time in the future.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      scheduleTimestamp = scheduledDateTime.getTime();
-    }
-
-
+  
+  const sendEmailRequest = async () => {
     setIsSending(true);
 
     let attachmentPayload;
@@ -258,11 +241,11 @@ export default function MailForm() {
     const result = await sendEmailsAction({
         subject,
         message,
-        recipientsFileContent: recipientsFileContent,
+        recipientsFileContent,
         attachment: attachmentPayload,
         banner: bannerPayload,
-        scheduleTime: scheduleTimestamp
     });
+    
     setIsSending(false);
     
     if (result.success) {
@@ -270,27 +253,68 @@ export default function MailForm() {
             title: 'Success!',
             description: result.message,
         });
-        // Reset form
-        setRecipientsFile(null);
-        setRecipientsFileContent('');
-        setAttachmentFile(null);
-        setBannerFile(null);
-        setBannerPreview(null);
-        setSubject('');
-        setMessage('');
-        setScheduleEmail(false);
-        setScheduledDate(undefined);
-        setScheduledTime('');
-        if(recipientInputRef.current) recipientInputRef.current.value = '';
-        if(attachmentInputRef.current) attachmentInputRef.current.value = '';
-        if(bannerInputRef.current) bannerInputRef.current.value = '';
-
+        // We don't reset the form here anymore, 
+        // as it was reset upon scheduling/sending.
+        setIsScheduled(false);
     } else {
         toast({
             title: 'Error',
             description: result.message,
             variant: 'destructive',
         });
+        setIsScheduled(false); // Allow user to try again
+    }
+  };
+
+
+  const handleSend = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!recipientsFileContent || !subject || !message) {
+       toast({
+        title: 'Form Incomplete',
+        description: 'Please upload a recipient file and fill out the subject and message.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (scheduleEmail) {
+      if (!scheduledDate || !scheduledTime) {
+        toast({
+          title: 'Scheduling Incomplete',
+          description: 'Please select a date and time to schedule the emails.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const [hours, minutes] = scheduledTime.split(':').map(Number);
+      const scheduledDateTime = new Date(scheduledDate);
+      scheduledDateTime.setHours(hours, minutes, 0, 0);
+      const delay = scheduledDateTime.getTime() - Date.now();
+
+      if (delay <= 0) {
+        toast({
+          title: 'Invalid Schedule Time',
+          description: 'Please select a time in the future.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      setTimeout(() => {
+        sendEmailRequest();
+      }, delay);
+      
+      toast({
+        title: 'Emails Scheduled!',
+        description: `Your emails are scheduled to be sent on ${format(scheduledDateTime, "PPP 'at' h:mm a")}.`,
+        className: 'bg-green-100 border-green-300 text-green-800',
+      });
+      
+      setIsScheduled(true); // Put UI in scheduled state
+      
+    } else {
+      sendEmailRequest();
     }
   };
   
@@ -306,7 +330,10 @@ export default function MailForm() {
 
   const getButtonText = () => {
     if (isSending) {
-      return scheduleEmail ? 'Scheduling...' : 'Sending...';
+      return scheduleEmail ? 'Sending Scheduled...' : 'Sending...';
+    }
+    if (isScheduled) {
+        return 'Emails are Scheduled...';
     }
     return scheduleEmail ? 'Schedule Emails' : 'Send Emails';
   };
@@ -314,7 +341,10 @@ export default function MailForm() {
   return (
     <Card className="w-full shadow-2xl shadow-primary/10 border-primary/20">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl tracking-tight">Compose Email</CardTitle>
+        <CardTitle className="font-headline text-2xl tracking-tight flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-accent" />
+            Compose Your Masterpiece
+        </CardTitle>
         <CardDescription>
           Fill in the details below to send your email blast.
         </CardDescription>
@@ -324,7 +354,7 @@ export default function MailForm() {
           <div className="space-y-2">
             <Label htmlFor="recipients-file">1. Recipient List (.csv or .xlsx)</Label>
             <div className="flex items-center gap-4">
-               <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
+               <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile || isScheduled}>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload File
               </Button>
@@ -335,6 +365,7 @@ export default function MailForm() {
                 ref={recipientInputRef}
                 onChange={handleRecipientFileChange}
                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                disabled={isScheduled}
               />
               <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
                 {renderFileStatusIndicator()}
@@ -348,7 +379,7 @@ export default function MailForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="subject">2. Subject</Label>
-            <Input id="subject" placeholder="Enter email subject" value={subject} onChange={e => setSubject(e.target.value)} required />
+            <Input id="subject" placeholder="Enter email subject" value={subject} onChange={e => setSubject(e.target.value)} required disabled={isScheduled} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="message">3. Message</Label>
@@ -357,20 +388,21 @@ export default function MailForm() {
               placeholder="Type your message here..."
               className="min-h-[150px]"
               value={message} onChange={e => setMessage(e.target.value)} required
+              disabled={isScheduled}
             />
             <p className="text-xs text-muted-foreground">
-              Note: The greeting "Dear Prof. &lt;Lastname&gt;," will be automatically added to each email.
+              Tip: Use placeholders like '{{FirstName}}' which match your CSV columns.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="attachment-file">4. Attachment (Optional)</Label>
                <div className="flex items-center gap-4">
-                  <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()}>
+                  <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()} disabled={isScheduled}>
                       <Paperclip className="mr-2 h-4 w-4" />
                       Add Attachment
                   </Button>
-                  <Input id="attachment-file" type="file" className="hidden" ref={attachmentInputRef} onChange={handleAttachmentFileChange} />
+                  <Input id="attachment-file" type="file" className="hidden" ref={attachmentInputRef} onChange={handleAttachmentFileChange} disabled={isScheduled} />
                   {attachmentFile && (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
                           <FileIcon className="h-4 w-4 flex-shrink-0" />
@@ -382,7 +414,7 @@ export default function MailForm() {
             <div className="space-y-2">
               <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
               <div className="flex items-center gap-4">
-                <Button type="button" variant="outline" onClick={() => bannerInputRef.current?.click()}>
+                <Button type="button" variant="outline" onClick={() => bannerInputRef.current?.click()} disabled={isScheduled}>
                   <ImageIcon className="mr-2 h-4 w-4" />
                   Upload Banner
                 </Button>
@@ -393,6 +425,7 @@ export default function MailForm() {
                   ref={bannerInputRef}
                   onChange={handleBannerFileChange}
                   accept="image/*"
+                  disabled={isScheduled}
                 />
                 {bannerFile && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
@@ -413,10 +446,13 @@ export default function MailForm() {
             </div>
           )}
 
-          <div className="space-y-4 rounded-lg border border-border p-4">
+          <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
             <div className="flex items-center justify-between">
-              <Label htmlFor="schedule-email" className="font-medium">6. Schedule for Later? (Optional)</Label>
-              <Switch id="schedule-email" checked={scheduleEmail} onCheckedChange={setScheduleEmail} />
+              <Label htmlFor="schedule-email" className="font-medium flex items-center gap-2">
+                <Menu className="w-5 h-5 text-muted-foreground" />
+                6. Schedule for Later? (Optional)
+              </Label>
+              <Switch id="schedule-email" checked={scheduleEmail} onCheckedChange={setScheduleEmail} disabled={isScheduled} />
             </div>
             {scheduleEmail && (
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-300'>
@@ -430,6 +466,7 @@ export default function MailForm() {
                           "w-full justify-start text-left font-normal",
                           !scheduledDate && "text-muted-foreground"
                         )}
+                        disabled={isScheduled}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
@@ -454,6 +491,7 @@ export default function MailForm() {
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
                       className="pl-10"
+                      disabled={isScheduled}
                     />
                   </div>
                 </div>
@@ -470,7 +508,7 @@ export default function MailForm() {
               "shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30"
             )}
             size="lg"
-            disabled={isSending || isProcessingFile || !recipientsFileContent}
+            disabled={isSending || isProcessingFile || !recipientsFileContent || isScheduled}
           >
             {isSending ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

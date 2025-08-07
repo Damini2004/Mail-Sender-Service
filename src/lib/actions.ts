@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 import nodemailer from 'nodemailer';
+import Handlebars from 'handlebars';
 
 const sendEmailsActionSchema = z.object({
   subject: z.string(),
@@ -15,7 +16,6 @@ const sendEmailsActionSchema = z.object({
     filename: z.string(),
     content: z.string(), // data URI
   }).optional(),
-  scheduleTime: z.number().optional(), // Unix timestamp in milliseconds
 });
 
 
@@ -27,15 +27,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     return { success: false, message: 'Invalid data provided.' };
   }
   
-  const { subject, message, recipientsFileContent, attachment, banner, scheduleTime } = validation.data;
-
-  if (scheduleTime) {
-    const delay = scheduleTime - Date.now();
-    if (delay > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
+  const { subject, message, recipientsFileContent, attachment, banner } = validation.data;
 
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
     return { success: false, message: 'Email credentials are not configured on the server.' };
@@ -47,48 +39,65 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_APP_PASSWORD,
     },
+    pool: true, // Use a connection pool for better performance
+    maxConnections: 5,
+    maxMessages: 100,
+    rateDelta: 1000,
+    rateLimit: 30, // Limit to 30 emails per second to be safe
   });
+  
+  // Pre-compile handlebars templates for performance
+  const messageTemplate = Handlebars.compile(message, { noEscape: true });
+  const subjectTemplate = Handlebars.compile(subject, { noEscape: true });
+
 
   try {
     const lines = recipientsFileContent.trim().split('\n');
     const headerLine = lines.shift() || '';
     const header = headerLine.toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
     
+    // Normalize headers to be valid variable names
+    const normalizedHeader = header.map(h => h.replace(/[^a-zA-Z0-9_]/g, ''));
+    
     const emailIndex = header.indexOf('email');
-    const lastNameIndex = header.indexOf('last name');
 
-    if (emailIndex === -1 || lastNameIndex === -1) {
-      let missingColumns = [];
-      if (emailIndex === -1) missingColumns.push('"email"');
-      if (lastNameIndex === -1) missingColumns.push('"last name"');
-      return { success: false, message: `The recipient file must contain ${missingColumns.join(' and ')} columns. Please check your file.` };
+    if (emailIndex === -1) {
+      return { success: false, message: `The recipient file must contain an "email" column. Please check your file.` };
     }
     
+    let sentCount = 0;
     const emailPromises = lines.map(async (line) => {
-      // Handle CSVs that might have commas inside quoted fields
       const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ''));
       const email = values[emailIndex];
-      const lastName = values[lastNameIndex];
+      
+      if (!email) return;
 
-      if (!email || !lastName) return;
+      const recipientData = normalizedHeader.reduce((acc, currentHeader, index) => {
+          acc[currentHeader] = values[index];
+          return acc;
+      }, {} as Record<string, string>);
 
-      const textMessage = `Dear Prof. ${lastName},\n\n${message}`;
+      const personalizedMessage = messageTemplate(recipientData);
+      const personalizedSubject = subjectTemplate(recipientData);
+      
+      const textMessage = personalizedMessage;
+      let htmlMessage = `<p>${personalizedMessage.replace(/\n/g, '<br>')}</p>`;
 
       const mailOptions: nodemailer.SendMailOptions = {
-        from: process.env.EMAIL_USER,
+        from: `Mail Merge Pro <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: subject,
+        subject: personalizedSubject,
         text: textMessage,
-        html: '', // will be populated below
+        html: htmlMessage, // will be populated below
         attachments: [],
       };
       
-      let htmlMessage = `<p>Dear Prof. ${lastName},</p><p>${message.replace(/\n/g, '<br>')}</p>`;
       const attachments = mailOptions.attachments as nodemailer.Attachment[];
 
       if (banner) {
           const bannerCid = 'banner-image@mailmerge.pro';
-          htmlMessage += `
+          // Append banner to the end of the HTML message
+          mailOptions.html += `
             <br>
             <div style="text-align: center;">
               <img src="cid:${bannerCid}" alt="Banner" style="max-width: 100%; height: auto;" />
@@ -100,8 +109,6 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
               cid: bannerCid,
           });
       }
-      
-      mailOptions.html = htmlMessage;
 
       if (attachment) {
         attachments.push({
@@ -110,23 +117,29 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
             encoding: 'base64',
         });
       }
-      return transporter.sendMail(mailOptions);
+      
+      try {
+        await transporter.sendMail(mailOptions);
+        sentCount++;
+      } catch (error) {
+        console.error(`Failed to send email to ${email}:`, error);
+        // Don't re-throw, so one failure doesn't stop the whole batch
+      }
     });
 
-    const results = await Promise.allSettled(emailPromises);
-    
-    const failedSends = results.filter(r => r.status === 'rejected');
-    if (failedSends.length > 0) {
-        console.error('Some emails failed to send:', failedSends);
-    }
-    const messageText = scheduleTime 
-    ? `Your emails were scheduled and have been sent successfully! (${lines.length} total)`
-    : `Your emails have been sent! (${lines.length} total)`;
+    await Promise.all(emailPromises);
+    transporter.close();
 
+    if (sentCount === 0 && lines.length > 0) {
+        return { success: false, message: 'No emails were sent. Please check your contact list and server logs.' };
+    }
+
+    const messageText = `Your email blast has been successfully sent to ${sentCount} of ${lines.length} recipients.`;
 
     return { success: true, message: messageText };
   } catch (error) {
     console.error('Error sending emails:', error);
+    transporter.close();
     return { success: false, message: 'Failed to send emails. Please check server logs for details.' };
   }
 }
