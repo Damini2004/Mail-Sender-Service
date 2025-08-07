@@ -263,7 +263,7 @@ export default function MailForm() {
   };
 
   return (
-    <Card className="w-full shadow-2xl shadow-slate-200/50">
+    <Card className="w-full shadow-2xl shadow-primary/10 border-primary/20">
       <CardHeader>
         <CardTitle className="font-headline text-2xl tracking-tight">Compose Email</CardTitle>
         <CardDescription>
@@ -365,9 +365,9 @@ export default function MailForm() {
           <Button
             type="submit"
             className={cn(
-              "w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all text-base font-medium",
-              "focus-visible:ring-accent",
-              "shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30"
+              "w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-base font-medium",
+              "focus-visible:ring-primary",
+              "shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
             )}
             size="lg"
             disabled={isSending || isProcessingFile || !recipientsFileContent}
