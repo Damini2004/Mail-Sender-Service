@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
@@ -464,7 +465,7 @@ export default function MailForm() {
             <Label htmlFor="message" className="text-base font-semibold tracking-tight">Message</Label>
             <Textarea
               id="message"
-              placeholder={'Dear Prof. {{Lastname}},\n\nI am writing to you today...'}
+              placeholder={'Dear Prof. Lastname,\n\nI am writing to you today...'}
               className="min-h-[150px]"
               value={message} onChange={e => setMessage(e.target.value)} required
             />
