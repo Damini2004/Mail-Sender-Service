@@ -18,16 +18,13 @@ import {
   Paperclip,
   Send,
   Loader2,
-  CheckCircle2,
-  XCircle,
   File as FileIcon,
+  CheckCircle2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { validateFileAction, sendEmailsAction } from '@/lib/actions';
+import { sendEmailsAction } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
-
-type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -51,19 +48,20 @@ export default function MailForm() {
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-
-  const [validationStatus, setValidationStatus] =
-    useState<ValidationStatus>('idle');
-  const [validationMessage, setValidationMessage] = useState('');
+  
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
   const recipientInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
 
-  const processAndValidateFile = async (file: File) => {
-    setValidationStatus('validating');
-    setValidationMessage('');
+  const handleRecipientFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingFile(true);
     setRecipientsFile(file);
+    setRecipientsFileContent('');
 
     try {
       const reader = new FileReader();
@@ -120,23 +118,13 @@ export default function MailForm() {
       }
       
       setRecipientsFileContent(content);
-      const result = await validateFileAction(content);
-      
-      if (result.isValid) {
-        setValidationStatus('valid');
-        toast({
-          title: 'File Validated',
-          description: 'Your recipient file is valid and ready.',
-          variant: 'default',
-        });
-      } else {
-        throw new Error(result.errorMessage || 'The uploaded file is invalid according to our validation rules.');
-      }
+      toast({
+          title: 'File Ready',
+          description: 'Your recipient file has been loaded.',
+      });
 
     } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred during validation.';
-      setValidationStatus('invalid');
-      setValidationMessage(errorMessage);
+      const errorMessage = err.message || 'An unexpected error occurred while processing the file.';
       setRecipientsFile(null);
       setRecipientsFileContent('');
       if(recipientInputRef.current) recipientInputRef.current.value = '';
@@ -146,13 +134,9 @@ export default function MailForm() {
         description: errorMessage,
         variant: 'destructive',
       });
+    } finally {
+        setIsProcessingFile(false);
     }
-  }
-
-  const handleRecipientFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await processAndValidateFile(file);
   };
 
   const handleAttachmentFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -164,10 +148,10 @@ export default function MailForm() {
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (validationStatus !== 'valid' || !subject || !message || !recipientsFileContent) {
+    if (!recipientsFileContent || !subject || !message) {
        toast({
         title: 'Form Incomplete',
-        description: 'Please upload a valid recipient file and fill out the subject and message.',
+        description: 'Please upload a recipient file and fill out the subject and message.',
         variant: 'destructive',
       });
       return;
@@ -213,7 +197,6 @@ export default function MailForm() {
         setAttachmentFile(null);
         setSubject('');
         setMessage('');
-        setValidationStatus('idle');
         if(recipientInputRef.current) recipientInputRef.current.value = '';
         if(attachmentInputRef.current) attachmentInputRef.current.value = '';
 
@@ -226,17 +209,14 @@ export default function MailForm() {
     }
   };
   
-  const renderValidationIndicator = () => {
-    switch (validationStatus) {
-      case 'validating':
+  const renderFileStatusIndicator = () => {
+    if (isProcessingFile) {
         return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />;
-      case 'valid':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
-      case 'invalid':
-        return <XCircle className="h-5 w-5 text-destructive" />;
-      default:
-        return null;
     }
+    if (recipientsFileContent) {
+        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+    }
+    return null;
   };
 
   return (
@@ -252,7 +232,7 @@ export default function MailForm() {
           <div className="space-y-2">
             <Label htmlFor="recipients-file">1. Recipient List (.csv or .xlsx)</Label>
             <div className="flex items-center gap-4">
-               <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()}>
+               <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload File
               </Button>
@@ -265,7 +245,7 @@ export default function MailForm() {
                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               />
               <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
-                {renderValidationIndicator()}
+                {renderFileStatusIndicator()}
                 {recipientsFile ? (
                     <span className="truncate">{recipientsFile.name}</span>
                 ): (
@@ -273,9 +253,6 @@ export default function MailForm() {
                 )}
               </div>
             </div>
-            {validationStatus === 'invalid' && validationMessage && (
-                <p className='text-sm text-destructive mt-1'>{validationMessage}</p>
-            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="subject">2. Subject</Label>
@@ -317,7 +294,7 @@ export default function MailForm() {
               "w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all",
               "focus-visible:ring-accent"
             )}
-            disabled={isSending || validationStatus !== 'valid'}
+            disabled={isSending || isProcessingFile || !recipientsFileContent}
           >
             {isSending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

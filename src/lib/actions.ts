@@ -1,21 +1,7 @@
 'use server';
 
-import { validateDataUpload } from '@/ai/flows/validate-data-upload';
 import { z } from 'zod';
 import nodemailer from 'nodemailer';
-
-export async function validateFileAction(fileContent: string) {
-  try {
-    const result = await validateDataUpload({ fileData: fileContent });
-    return result;
-  } catch (error) {
-    console.error('Validation error:', error);
-    return {
-      isValid: false,
-      errorMessage: 'An unexpected error occurred during validation.',
-    };
-  }
-}
 
 const sendEmailsActionSchema = z.object({
   subject: z.string(),
@@ -50,20 +36,25 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
   });
 
   try {
-    // Assuming CSV format: email,lastName
     const lines = recipientsFileContent.trim().split('\n');
-    const header = lines.shift()?.toLowerCase().split(',').map(h => h.trim()) || [];
+    const headerLine = lines.shift() || '';
+    const header = headerLine.toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+    
     const emailIndex = header.indexOf('email');
     const lastNameIndex = header.indexOf('last name');
 
     if (emailIndex === -1 || lastNameIndex === -1) {
-      return { success: false, message: 'CSV must contain "email" and "last name" columns.' };
+      let missingColumns = [];
+      if (emailIndex === -1) missingColumns.push('"email"');
+      if (lastNameIndex === -1) missingColumns.push('"last name"');
+      return { success: false, message: `The recipient file must contain ${missingColumns.join(' and ')} columns. Please check your file.` };
     }
 
     const emailPromises = lines.map(async (line) => {
-      const values = line.split(',');
-      const email = values[emailIndex]?.trim();
-      const lastName = values[lastNameIndex]?.trim();
+      // Handle CSVs that might have commas inside quoted fields
+      const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ''));
+      const email = values[emailIndex];
+      const lastName = values[lastNameIndex];
 
       if (!email || !lastName) return;
 
@@ -88,11 +79,16 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
       return transporter.sendMail(mailOptions);
     });
 
-    await Promise.all(emailPromises);
+    const results = await Promise.allSettled(emailPromises);
+    
+    const failedSends = results.filter(r => r.status === 'rejected');
+    if (failedSends.length > 0) {
+        console.error('Some emails failed to send:', failedSends);
+    }
 
-    return { success: true, message: 'Your emails have been sent successfully!' };
+    return { success: true, message: `Your emails have been sent! (${lines.length} total)` };
   } catch (error) {
     console.error('Error sending emails:', error);
-    return { success: false, message: 'Failed to send emails. Please check server logs.' };
+    return { success: false, message: 'Failed to send emails. Please check server logs for details.' };
   }
 }
