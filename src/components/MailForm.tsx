@@ -412,7 +412,7 @@ export default function MailForm() {
       <CardHeader>
         <CardTitle className="font-headline text-2xl tracking-tight flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-accent" />
-            Add New Task
+            Compose Message
         </CardTitle>
         <CardDescription>
           Fill in the details below to send your email blast.
@@ -421,7 +421,7 @@ export default function MailForm() {
       <form onSubmit={handleSend}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="recipients-file">1. Recipient List (.csv or .xlsx)</Label>
+            <Label htmlFor="recipients-file">Recipient List (.csv or .xlsx)</Label>
             <div className="flex items-center gap-4">
                <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -446,24 +446,24 @@ export default function MailForm() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="subject">2. Subject</Label>
-            <Input id="subject" placeholder="Your Task name" value={subject} onChange={e => setSubject(e.target.value)} required />
+            <Label htmlFor="subject">Subject</Label>
+            <Input id="subject" placeholder="Your email subject line" value={subject} onChange={e => setSubject(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="message">3. Message</Label>
+            <Label htmlFor="message">Message</Label>
             <Textarea
               id="message"
-              placeholder="Add note..."
+              placeholder={'Dear Prof. {{Lastname}},\n\nI am writing to you today...'}
               className="min-h-[150px]"
               value={message} onChange={e => setMessage(e.target.value)} required
             />
             <p className="text-xs text-muted-foreground">
-              {"Tip: Use placeholders like '{{FirstName}}' which match your CSV columns."}
+              Tip: Use placeholders like {'{{FirstName}}'} which match your CSV columns.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="attachment-file">4. Attachment (Optional)</Label>
+              <Label htmlFor="attachment-file">Attachment (Optional)</Label>
                <div className="flex items-center gap-4">
                   <Button type="button" variant="outline" className="rounded-full" onClick={() => attachmentInputRef.current?.click()}>
                       <Paperclip className="mr-2 h-4 w-4" />
@@ -479,7 +479,7 @@ export default function MailForm() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
+              <Label htmlFor="banner-file">Banner Image (Optional)</Label>
               <div className="flex items-center gap-4">
                 <Button type="button" variant="outline" className="rounded-full" onClick={() => bannerInputRef.current?.click()}>
                   <ImageIcon className="mr-2 h-4 w-4" />
@@ -516,7 +516,7 @@ export default function MailForm() {
             <div className="flex items-center justify-between">
               <Label htmlFor="schedule-email" className="font-medium flex items-center gap-2">
                 <Menu className="w-5 h-5 text-muted-foreground" />
-                6. Schedule for Later? (Optional)
+                Schedule for Later? (Optional)
               </Label>
               <Switch id="schedule-email" checked={scheduleEmail} onCheckedChange={setScheduleEmail} />
             </div>
