@@ -549,13 +549,13 @@ export default function MailForm() {
                 </div>
                 <div>
                   <Label className='text-xs'>Time</Label>
-                   <div className="relative">
-                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white" />
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 stroke-white pointer-events-none" />
                     <Input 
                       type="time" 
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 bg-black text-white"
                     />
                   </div>
                 </div>
