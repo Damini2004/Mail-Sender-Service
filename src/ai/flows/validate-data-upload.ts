@@ -32,25 +32,21 @@ const validateDataUploadPrompt = ai.definePrompt({
   output: {schema: ValidateDataUploadOutputSchema},
   prompt: `You are an expert data validator. Your task is to validate the data provided from a CSV file.
 
-The data must contain a header row with "email" and "last name" columns. The "email" column must contain valid email addresses. The "last name" column must contain professor last names.
+Follow these steps carefully:
+1.  Analyze the header row. The header MUST contain columns named "email" and "last name". The column names are case-insensitive and can have leading/trailing whitespace.
+2.  If the header is missing either "email" or "last name", immediately return an error message specifying which header is missing. For example: "Header 'last name' is missing."
+3.  Iterate through each data row (every line after the header).
+4.  For each row, check the value in the "email" column. It must be a validly formatted email address. If not, return an error specifying the row number and the invalid email. For example: "Invalid email format on row 3: 'not-an-email'".
+5.  For each row, check the value in the "last name" column. It must not be empty or just whitespace. If it is, return an error specifying the row number. For example: "Missing last name on row 5."
+6.  If you have checked all rows and found no errors, the data is valid.
 
-Here is the data:
+The data to validate is here:
 
 {{{fileData}}}
 
-Please validate the data based on these requirements.
-- Check for the presence of "email" and "last name" headers.
-- Check if all rows under "email" are valid email addresses.
-- The "last name" column should not be empty.
-
-If the data is invalid, provide a clear and specific error message explaining what's wrong (e.g., "Header 'last name' is missing.", "Invalid email format on row 3.").
-If the data is valid, return true with no error message.
-
-Return a JSON object with the following format:
-{
-  "isValid": true or false,
-  "errorMessage": "error message if isValid is false"
-}
+Return a JSON object with your findings. The JSON object must have two fields: "isValid" (boolean) and "errorMessage" (string, optional).
+- If the data is valid, set "isValid" to true and omit "errorMessage".
+- If the data is invalid, set "isValid" to false and provide a clear, specific "errorMessage" explaining the FIRST error you found.
 `,
 });
 
@@ -74,7 +70,7 @@ const validateDataUploadFlow = ai.defineFlow(
       console.error(e);
       return {
           isValid: false,
-          errorMessage: 'Could not validate the file. Please ensure it is a valid CSV with "email" and "last name" columns.',
+          errorMessage: 'An unexpected error occurred during validation.',
         };
     }
   }
