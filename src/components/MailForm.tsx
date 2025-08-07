@@ -25,6 +25,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { validateFileAction, sendEmailsAction } from '@/lib/actions';
 import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
 
@@ -65,32 +66,81 @@ export default function MailForm() {
     setRecipientsFile(file);
     setValidationStatus('validating');
     setValidationMessage('');
-
+    
     const reader = new FileReader();
+
     reader.onload = async (event) => {
-      const content = event.target?.result as string;
-      setRecipientsFileContent(content);
-      const result = await validateFileAction(content);
-      if (result.isValid) {
-        setValidationStatus('valid');
-        toast({
-          title: 'File Validated',
-          description: 'Your recipient file is valid and ready.',
-          variant: 'default',
-        });
-      } else {
-        setValidationStatus('invalid');
-        setValidationMessage(
-          result.errorMessage || 'The uploaded file is invalid.'
-        );
-        toast({
-          title: 'Invalid File',
-          description: result.errorMessage || 'Please check the file format and content.',
-          variant: 'destructive',
-        });
+      let content = '';
+      try {
+        if (file.name.endsWith('.csv')) {
+          content = event.target?.result as string;
+        } else if (file.name.endsWith('.xlsx')) {
+          const data = new Uint8Array(event.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          content = XLSX.utils.sheet_to_csv(worksheet);
+        } else {
+            throw new Error("Unsupported file type. Please upload a .csv or .xlsx file.");
+        }
+
+        setRecipientsFileContent(content);
+        const result = await validateFileAction(content);
+        if (result.isValid) {
+          setValidationStatus('valid');
+          toast({
+            title: 'File Validated',
+            description: 'Your recipient file is valid and ready.',
+            variant: 'default',
+          });
+        } else {
+          setValidationStatus('invalid');
+          setValidationMessage(
+            result.errorMessage || 'The uploaded file is invalid.'
+          );
+          toast({
+            title: 'Invalid File',
+            description: result.errorMessage || 'Please check the file format and content.',
+            variant: 'destructive',
+          });
+        }
+      } catch (err: any) {
+         setValidationStatus('invalid');
+         const errorMessage = err.message || 'An error occurred while processing the file.';
+         setValidationMessage(errorMessage);
+         toast({
+            title: 'File Processing Error',
+            description: errorMessage,
+            variant: 'destructive',
+         })
       }
     };
-    reader.readAsText(file);
+    
+    reader.onerror = () => {
+        setValidationStatus('invalid');
+        const errorMessage = 'Failed to read the file.';
+        setValidationMessage(errorMessage);
+        toast({
+            title: 'File Read Error',
+            description: errorMessage,
+            variant: 'destructive',
+        })
+    }
+
+    if (file.name.endsWith('.csv')) {
+        reader.readAsText(file);
+    } else if(file.name.endsWith('.xlsx')) {
+        reader.readAsArrayBuffer(file);
+    } else {
+        setValidationStatus('invalid');
+        const errorMessage = "Unsupported file type. Please upload a .csv or .xlsx file.";
+        setValidationMessage(errorMessage);
+        toast({
+            title: 'Invalid File Type',
+            description: errorMessage,
+            variant: 'destructive',
+        })
+    }
   };
 
   const handleAttachmentFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -178,7 +228,7 @@ export default function MailForm() {
       <form onSubmit={handleSend}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="recipients-file">1. Recipient List (CSV only)</Label>
+            <Label htmlFor="recipients-file">1. Recipient List (.csv or .xlsx)</Label>
             <div className="flex items-center gap-4">
                <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -190,7 +240,7 @@ export default function MailForm() {
                 className="hidden"
                 ref={recipientInputRef}
                 onChange={handleRecipientFileChange}
-                accept=".csv"
+                accept=".csv,.xlsx"
               />
               <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
                 {renderValidationIndicator()}
