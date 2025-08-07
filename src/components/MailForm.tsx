@@ -365,11 +365,11 @@ export default function MailForm() {
   };
 
   return (
-    <>
-      <div className="absolute top-4 right-4">
+    <Card className="w-full shadow-2xl rounded-t-none rounded-b-3xl border-none">
+      <div className="absolute top-4 right-4 z-10">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-muted/50">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:bg-muted/50 rounded-full">
               <History className="h-6 w-6" />
               <span className="sr-only">View Scheduled Email Logs</span>
             </Button>
@@ -409,182 +409,180 @@ export default function MailForm() {
         </Sheet>
       </div>
 
-      <Card className="w-full shadow-2xl shadow-primary/10 border-primary/20">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl tracking-tight flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-accent" />
-              Compose Your Masterpiece
-          </CardTitle>
-          <CardDescription>
-            Fill in the details below to send your email blast.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSend}>
-          <CardContent className="space-y-6">
+      <CardHeader>
+        <CardTitle className="font-headline text-2xl tracking-tight flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-accent" />
+            Add New Task
+        </CardTitle>
+        <CardDescription>
+          Fill in the details below to send your email blast.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSend}>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="recipients-file">1. Recipient List (.csv or .xlsx)</Label>
+            <div className="flex items-center gap-4">
+               <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload File
+              </Button>
+              <Input
+                id="recipients-file"
+                type="file"
+                className="hidden"
+                ref={recipientInputRef}
+                onChange={handleRecipientFileChange}
+                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
+                {renderFileStatusIndicator()}
+                {recipientsFile ? (
+                    <span className="truncate">{recipientsFile.name}</span>
+                ): (
+                    <span>No file selected</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="subject">2. Subject</Label>
+            <Input id="subject" placeholder="Your Task name" value={subject} onChange={e => setSubject(e.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="message">3. Message</Label>
+            <Textarea
+              id="message"
+              placeholder="Add note..."
+              className="min-h-[150px]"
+              value={message} onChange={e => setMessage(e.target.value)} required
+            />
+            <p className="text-xs text-muted-foreground">
+              {"Tip: Use placeholders like '{{FirstName}}' which match your CSV columns."}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="recipients-file">1. Recipient List (.csv or .xlsx)</Label>
+              <Label htmlFor="attachment-file">4. Attachment (Optional)</Label>
+               <div className="flex items-center gap-4">
+                  <Button type="button" variant="outline" className="rounded-full" onClick={() => attachmentInputRef.current?.click()}>
+                      <Paperclip className="mr-2 h-4 w-4" />
+                      Add Attachment
+                  </Button>
+                  <Input id="attachment-file" type="file" className="hidden" ref={attachmentInputRef} onChange={handleAttachmentFileChange} />
+                  {attachmentFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
+                          <FileIcon className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{attachmentFile.name}</span>
+                      </div>
+                  )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
               <div className="flex items-center gap-4">
-                 <Button type="button" variant="outline" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload File
+                <Button type="button" variant="outline" className="rounded-full" onClick={() => bannerInputRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Upload Banner
                 </Button>
                 <Input
-                  id="recipients-file"
+                  id="banner-file"
                   type="file"
                   className="hidden"
-                  ref={recipientInputRef}
-                  onChange={handleRecipientFileChange}
-                  accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  ref={bannerInputRef}
+                  onChange={handleBannerFileChange}
+                  accept="image/*"
                 />
-                <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
-                  {renderFileStatusIndicator()}
-                  {recipientsFile ? (
-                      <span className="truncate">{recipientsFile.name}</span>
-                  ): (
-                      <span>No file selected</span>
-                  )}
-                </div>
+                {bannerFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
+                    <FileIcon className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{bannerFile.name}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="subject">2. Subject</Label>
-              <Input id="subject" placeholder="Enter email subject" value={subject} onChange={e => setSubject(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="message">3. Message</Label>
-              <Textarea
-                id="message"
-                placeholder="Type your message here..."
-                className="min-h-[150px]"
-                value={message} onChange={e => setMessage(e.target.value)} required
-              />
-              <p className="text-xs text-muted-foreground">
-                {"Tip: Use placeholders like '{{FirstName}}' which match your CSV columns."}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="attachment-file">4. Attachment (Optional)</Label>
-                 <div className="flex items-center gap-4">
-                    <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()}>
-                        <Paperclip className="mr-2 h-4 w-4" />
-                        Add Attachment
-                    </Button>
-                    <Input id="attachment-file" type="file" className="hidden" ref={attachmentInputRef} onChange={handleAttachmentFileChange} />
-                    {attachmentFile && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
-                            <FileIcon className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">{attachmentFile.name}</span>
-                        </div>
-                    )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
-                <div className="flex items-center gap-4">
-                  <Button type="button" variant="outline" onClick={() => bannerInputRef.current?.click()}>
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Upload Banner
-                  </Button>
-                  <Input
-                    id="banner-file"
-                    type="file"
-                    className="hidden"
-                    ref={bannerInputRef}
-                    onChange={handleBannerFileChange}
-                    accept="image/*"
-                  />
-                  {bannerFile && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground truncate">
-                      <FileIcon className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{bannerFile.name}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          </div>
 
-            {bannerPreview && (
-              <div className="mt-4">
-                <Label>Banner Preview</Label>
-                <div className="mt-2 rounded-lg border p-2">
-                  <Image src={bannerPreview} alt="Banner Preview" width={500} height={150} className="w-full rounded-md object-contain" />
+          {bannerPreview && (
+            <div className="mt-4">
+              <Label>Banner Preview</Label>
+              <div className="mt-2 rounded-lg border p-2">
+                <Image src={bannerPreview} alt="Banner Preview" width={500} height={150} className="w-full rounded-md object-contain" />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4 rounded-2xl border border-border bg-background/50 p-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="schedule-email" className="font-medium flex items-center gap-2">
+                <Menu className="w-5 h-5 text-muted-foreground" />
+                6. Schedule for Later? (Optional)
+              </Label>
+              <Switch id="schedule-email" checked={scheduleEmail} onCheckedChange={setScheduleEmail} />
+            </div>
+            {scheduleEmail && (
+              <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-300'>
+                <div>
+                  <Label className='text-xs'>Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !scheduledDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={scheduledDate}
+                        onSelect={setScheduledDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label className='text-xs'>Time</Label>
+                   <div className="relative">
+                     <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      type="time" 
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
               </div>
             )}
-
-            <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="schedule-email" className="font-medium flex items-center gap-2">
-                  <Menu className="w-5 h-5 text-muted-foreground" />
-                  6. Schedule for Later? (Optional)
-                </Label>
-                <Switch id="schedule-email" checked={scheduleEmail} onCheckedChange={setScheduleEmail} />
-              </div>
-              {scheduleEmail && (
-                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-300'>
-                  <div>
-                    <Label className='text-xs'>Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !scheduledDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {scheduledDate ? format(scheduledDate, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={scheduledDate}
-                          onSelect={setScheduledDate}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div>
-                    <Label className='text-xs'>Time</Label>
-                     <div className="relative">
-                       <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        type="time" 
-                        value={scheduledTime}
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              type="submit"
-              className={cn(
-                "w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all text-base font-medium",
-                "focus-visible:ring-accent",
-                "shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30"
-              )}
-              size="lg"
-              disabled={isSending || isProcessingFile || !recipientsFileContent}
-            >
-              {isSending ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-5 w-5" />
-              )}
-              {getButtonText()}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
-    </>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button
+            type="submit"
+            className={cn(
+              "w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-base font-medium rounded-full",
+              "focus-visible:ring-primary",
+              "shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
+            )}
+            size="lg"
+            disabled={isSending || isProcessingFile || !recipientsFileContent}
+          >
+            {isSending ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-5 w-5" />
+            )}
+            {getButtonText()}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }
