@@ -84,7 +84,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
       let htmlMessage = `<p>${personalizedMessage.replace(/\n/g, '<br>')}</p>`;
 
       const mailOptions: nodemailer.SendMailOptions = {
-        from: `Mail Merge Pro <${process.env.EMAIL_USER}>`,
+        from: `Pure Research Insights <${process.env.EMAIL_USER}>`,
         to: email,
         subject: personalizedSubject,
         text: textMessage,

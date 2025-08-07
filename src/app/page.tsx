@@ -10,7 +10,7 @@ export default function Home() {
                 <Mail className="w-8 h-8" />
             </div>
             <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary-foreground">
-                Mail Merge Pro
+                Pure Research Insights
             </h1>
             <p className="mt-3 text-lg text-primary-foreground/90 max-w-md mx-auto">
                 Upload a contact list, compose your message, and send personalized emails in bulk.
