@@ -263,9 +263,9 @@ export default function MailForm() {
   };
 
   return (
-    <Card className="w-full shadow-lg">
+    <Card className="w-full shadow-2xl shadow-slate-200/50">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl">Compose Email</CardTitle>
+        <CardTitle className="font-headline text-2xl tracking-tight">Compose Email</CardTitle>
         <CardDescription>
           Fill in the details below to send your email blast.
         </CardDescription>
@@ -354,7 +354,7 @@ export default function MailForm() {
             {bannerPreview && (
               <div className="mt-4">
                 <Label>Banner Preview</Label>
-                <div className="mt-2 rounded-md border p-2">
+                <div className="mt-2 rounded-lg border p-2">
                   <Image src={bannerPreview} alt="Banner Preview" width={500} height={150} className="w-full rounded-md object-contain" />
                 </div>
               </div>
@@ -365,15 +365,17 @@ export default function MailForm() {
           <Button
             type="submit"
             className={cn(
-              "w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all",
-              "focus-visible:ring-accent"
+              "w-full bg-accent text-accent-foreground hover:bg-accent/90 transition-all text-base font-medium",
+              "focus-visible:ring-accent",
+              "shadow-lg shadow-accent/20 hover:shadow-xl hover:shadow-accent/30"
             )}
+            size="lg"
             disabled={isSending || isProcessingFile || !recipientsFileContent}
           >
             {isSending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <Send className="mr-2 h-4 w-4" />
+              <Send className="mr-2 h-5 w-5" />
             )}
             {isSending ? 'Sending...' : 'Send Emails'}
           </Button>
