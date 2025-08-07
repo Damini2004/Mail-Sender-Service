@@ -83,7 +83,7 @@ export default function MailForm() {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [editorLoaded, setEditorLoaded] = useState(false);
-  const [ClassicEditor, setClassicEditor] = useState<any>(null);
+  const editorRef = useRef<any>(null);
 
 
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -98,11 +98,11 @@ export default function MailForm() {
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   
-    useEffect(() => {
+  useEffect(() => {
     // Dynamically import the editor build
     import('@ckeditor/ckeditor5-build-classic')
       .then(editorModule => {
-        setClassicEditor(editorModule.default);
+        editorRef.current = editorModule.default;
         setEditorLoaded(true);
       })
       .catch(error => {
@@ -490,10 +490,10 @@ export default function MailForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="message" className="text-base font-semibold tracking-tight">Message</Label>
-            {editorLoaded && ClassicEditor ? (
+            {editorLoaded && editorRef.current ? (
               <div className='prose max-w-none [&_.ck-editor__main>.ck-editor__editable]:min-h-[150px]'>
                   <CKEditor
-                      editor={ClassicEditor}
+                      editor={editorRef.current}
                       data={message}
                       onChange={(event, editor) => {
                           const data = editor.getData();
@@ -501,7 +501,6 @@ export default function MailForm() {
                       }}
                   />
               </div>
-
             ) : (
                 <div className="w-full min-h-[190px] p-4 border rounded-md animate-pulse bg-muted"></div>
             )}
