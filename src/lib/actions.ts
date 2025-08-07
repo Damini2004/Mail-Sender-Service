@@ -11,6 +11,10 @@ const sendEmailsActionSchema = z.object({
     filename: z.string(),
     content: z.string(), // base64 encoded
   }).optional(),
+  banner: z.object({
+    filename: z.string(),
+    content: z.string(), // data URI
+  }).optional(),
 });
 
 
@@ -18,10 +22,11 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
   const validation = sendEmailsActionSchema.safeParse(data);
 
   if (!validation.success) {
+    console.error('Invalid data provided:', validation.error.flatten());
     return { success: false, message: 'Invalid data provided.' };
   }
   
-  const { subject, message, recipientsFileContent, attachment } = validation.data;
+  const { subject, message, recipientsFileContent, attachment, banner } = validation.data;
 
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
     return { success: false, message: 'Email credentials are not configured on the server.' };
@@ -49,7 +54,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
       if (lastNameIndex === -1) missingColumns.push('"last name"');
       return { success: false, message: `The recipient file must contain ${missingColumns.join(' and ')} columns. Please check your file.` };
     }
-
+    
     const emailPromises = lines.map(async (line) => {
       // Handle CSVs that might have commas inside quoted fields
       const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ''));
@@ -58,23 +63,43 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
 
       if (!email || !lastName) return;
 
-      const personalizedMessage = `Dear Prof. ${lastName},\n\n${message}`;
+      const textMessage = `Dear Prof. ${lastName},\n\n${message}`;
 
       const mailOptions: nodemailer.SendMailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
         subject: subject,
-        text: personalizedMessage,
+        text: textMessage,
+        html: '', // will be populated below
+        attachments: [],
       };
+      
+      let htmlMessage = `<p>Dear Prof. ${lastName},</p><p>${message.replace(/\n/g, '<br>')}</p>`;
+      const attachments = mailOptions.attachments as nodemailer.Attachment[];
+
+      if (banner) {
+          const bannerCid = 'banner-image@mailmerge.pro';
+          htmlMessage = `
+            <div style="text-align: center;">
+              <img src="cid:${bannerCid}" alt="Banner" style="max-width: 100%; height: auto;" />
+            </div>
+            <br>
+          ` + htmlMessage;
+          attachments.push({
+              filename: banner.filename,
+              path: banner.content,
+              cid: bannerCid,
+          });
+      }
+      
+      mailOptions.html = htmlMessage;
 
       if (attachment) {
-        mailOptions.attachments = [
-          {
+        attachments.push({
             filename: attachment.filename,
             content: attachment.content,
             encoding: 'base64',
-          },
-        ];
+        });
       }
       return transporter.sendMail(mailOptions);
     });

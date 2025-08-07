@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -20,6 +21,7 @@ import {
   Loader2,
   File as FileIcon,
   CheckCircle2,
+  ImageIcon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendEmailsAction } from '@/lib/actions';
@@ -32,9 +34,7 @@ const fileToBase64 = (file: File): Promise<string> => {
         reader.readAsDataURL(file);
         reader.onload = () => {
             const result = reader.result as string;
-            // remove the prefix 'data:[<mediatype>];base64,'
-            const base64 = result.substring(result.indexOf(',') + 1);
-            resolve(base64);
+            resolve(result); // Keep the full data URI
         };
         reader.onerror = (error) => reject(error);
     });
@@ -46,6 +46,8 @@ export default function MailForm() {
   const [recipientsFile, setRecipientsFile] = useState<File | null>(null);
   const [recipientsFileContent, setRecipientsFileContent] = useState<string>('');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   
@@ -54,6 +56,7 @@ export default function MailForm() {
 
   const recipientInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const handleRecipientFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -78,7 +81,7 @@ export default function MailForm() {
 
             if (fileExtension === 'csv') {
               csvContent = event.target.result as string;
-            } else if (fileExtension === 'xlsx') {
+            } else if (['xlsx', 'xls'].includes(fileExtension || '')) {
               const data = new Uint8Array(event.target.result as ArrayBuffer);
               const workbook = XLSX.read(data, { type: 'array' });
               const sheetName = workbook.SheetNames[0];
@@ -104,7 +107,7 @@ export default function MailForm() {
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
         if (fileExtension === 'csv') {
             reader.readAsText(file);
-        } else if(fileExtension === 'xlsx') {
+        } else if(['xlsx', 'xls'].includes(fileExtension || '')) {
             reader.readAsArrayBuffer(file);
         } else {
            reject(new Error("Unsupported file type. Please upload a .csv or .xlsx file."));
@@ -118,10 +121,6 @@ export default function MailForm() {
       }
       
       setRecipientsFileContent(content);
-      toast({
-          title: 'File Ready',
-          description: 'Your recipient file has been loaded.',
-      });
 
     } catch (err: any) {
       const errorMessage = err.message || 'An unexpected error occurred while processing the file.';
@@ -145,6 +144,26 @@ export default function MailForm() {
       setAttachmentFile(file);
     }
   };
+  
+  const handleBannerFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Please upload an image file for the banner.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setBannerFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBannerPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -163,9 +182,10 @@ export default function MailForm() {
     if (attachmentFile) {
         try {
             const content = await fileToBase64(attachmentFile);
+            const base64Content = content.substring(content.indexOf(',') + 1);
             attachmentPayload = {
                 filename: attachmentFile.name,
-                content,
+                content: base64Content,
             };
         } catch (error) {
             setIsSending(false);
@@ -178,11 +198,31 @@ export default function MailForm() {
         }
     }
 
+    let bannerPayload;
+    if (bannerFile) {
+        try {
+            const content = await fileToBase64(bannerFile);
+            bannerPayload = {
+                filename: bannerFile.name,
+                content, // Pass the full data URI
+            };
+        } catch (error) {
+            setIsSending(false);
+            toast({
+                title: 'Banner Error',
+                description: 'Could not process the banner image.',
+                variant: 'destructive',
+            });
+            return;
+        }
+    }
+
     const result = await sendEmailsAction({
         subject,
         message,
         recipientsFileContent: recipientsFileContent,
-        attachment: attachmentPayload
+        attachment: attachmentPayload,
+        banner: bannerPayload
     });
     setIsSending(false);
     
@@ -195,10 +235,13 @@ export default function MailForm() {
         setRecipientsFile(null);
         setRecipientsFileContent('');
         setAttachmentFile(null);
+        setBannerFile(null);
+        setBannerPreview(null);
         setSubject('');
         setMessage('');
         if(recipientInputRef.current) recipientInputRef.current.value = '';
         if(attachmentInputRef.current) attachmentInputRef.current.value = '';
+        if(bannerInputRef.current) bannerInputRef.current.value = '';
 
     } else {
         toast({
@@ -285,6 +328,37 @@ export default function MailForm() {
                     </div>
                 )}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="banner-file">5. Banner Image (Optional)</Label>
+            <div className="flex items-center gap-4">
+              <Button type="button" variant="outline" onClick={() => bannerInputRef.current?.click()}>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Upload Banner
+              </Button>
+              <Input
+                id="banner-file"
+                type="file"
+                className="hidden"
+                ref={bannerInputRef}
+                onChange={handleBannerFileChange}
+                accept="image/*"
+              />
+              {bannerFile && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileIcon className="h-4 w-4" />
+                  <span className="truncate">{bannerFile.name}</span>
+                </div>
+              )}
+            </div>
+            {bannerPreview && (
+              <div className="mt-4">
+                <Label>Banner Preview</Label>
+                <div className="mt-2 rounded-md border p-2">
+                  <Image src={bannerPreview} alt="Banner Preview" width={500} height={150} className="w-full rounded-md object-contain" />
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter>
