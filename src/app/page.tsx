@@ -1,4 +1,5 @@
 import MailForm from "@/components/MailForm";
+import MobileSuggestion from "@/components/MobileSuggestion";
 import { Mail } from "lucide-react";
 
 export default function Home() {
@@ -17,6 +18,7 @@ export default function Home() {
           </p>
         </div>
         <MailForm />
+        <MobileSuggestion />
       </div>
     </main>
   );
