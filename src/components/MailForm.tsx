@@ -35,14 +35,13 @@ const fileToBase64 = (file: File): Promise<string> => {
         reader.readAsDataURL(file);
         reader.onload = () => {
             const result = reader.result as string;
-            // remove the prefix 'data:;base64,'
+            // remove the prefix 'data:[<mediatype>];base64,'
             const base64 = result.substring(result.indexOf(',') + 1);
             resolve(base64);
         };
         reader.onerror = (error) => reject(error);
     });
 };
-
 
 export default function MailForm() {
   const { toast } = useToast();
@@ -64,6 +63,7 @@ export default function MailForm() {
   const processAndValidateFile = async (file: File) => {
     setValidationStatus('validating');
     setValidationMessage('');
+    setRecipientsFile(file);
 
     try {
       const reader = new FileReader();
@@ -72,16 +72,21 @@ export default function MailForm() {
         reader.onload = (event) => {
           try {
             if (!event.target?.result) {
-              return reject(new Error("Failed to read file."));
+              return reject(new Error("Failed to read file. The file might be empty or corrupted."));
             }
 
-            let csvContent = '';
-            if (file.name.endsWith('.csv')) {
+            let csvContent: string;
+            const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+            if (fileExtension === 'csv') {
               csvContent = event.target.result as string;
-            } else if (file.name.endsWith('.xlsx')) {
+            } else if (fileExtension === 'xlsx') {
               const data = new Uint8Array(event.target.result as ArrayBuffer);
               const workbook = XLSX.read(data, { type: 'array' });
               const sheetName = workbook.SheetNames[0];
+              if(!sheetName) {
+                return reject(new Error("The Excel file seems to be empty or invalid. No sheets found."));
+              }
               const worksheet = workbook.Sheets[sheetName];
               csvContent = XLSX.utils.sheet_to_csv(worksheet);
             } else {
@@ -89,17 +94,19 @@ export default function MailForm() {
             }
             resolve(csvContent);
           } catch (err) {
-            reject(err);
+            console.error("Error parsing file:", err);
+            reject(new Error("There was an error parsing your file. Please check the file format and content."));
           }
         };
 
         reader.onerror = () => {
-          reject(new Error("Failed to read the file."));
+          reject(new Error("Failed to read the file. Please try again."));
         };
 
-        if (file.name.endsWith('.csv')) {
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        if (fileExtension === 'csv') {
             reader.readAsText(file);
-        } else if(file.name.endsWith('.xlsx')) {
+        } else if(fileExtension === 'xlsx') {
             reader.readAsArrayBuffer(file);
         } else {
            reject(new Error("Unsupported file type. Please upload a .csv or .xlsx file."));
@@ -123,29 +130,28 @@ export default function MailForm() {
           variant: 'default',
         });
       } else {
-        throw new Error(result.errorMessage || 'The uploaded file is invalid.');
+        throw new Error(result.errorMessage || 'The uploaded file is invalid according to our validation rules.');
       }
 
     } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred.';
+      const errorMessage = err.message || 'An unexpected error occurred during validation.';
       setValidationStatus('invalid');
       setValidationMessage(errorMessage);
+      setRecipientsFile(null);
+      setRecipientsFileContent('');
+      if(recipientInputRef.current) recipientInputRef.current.value = '';
+      
       toast({
         title: 'File Error',
         description: errorMessage,
         variant: 'destructive',
       });
-      // Also clear the file so user can re-upload
-      setRecipientsFile(null);
-      setRecipientsFileContent('');
-      if(recipientInputRef.current) recipientInputRef.current.value = '';
     }
   }
 
   const handleRecipientFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setRecipientsFile(file);
     await processAndValidateFile(file);
   };
 
