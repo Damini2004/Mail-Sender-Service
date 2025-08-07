@@ -44,6 +44,7 @@ import { Switch } from './ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -423,10 +424,20 @@ export default function MailForm() {
           <div className="space-y-2">
             <Label htmlFor="recipients-file" className="text-base font-semibold tracking-tight">Recipient List (.csv or .xlsx)</Label>
             <div className="flex items-center gap-4">
-               <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload File
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload File
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{"Tip: Use placeholders like {{FirstName}} which match your CSV columns."}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <Input
                 id="recipients-file"
                 type="file"
@@ -457,9 +468,6 @@ export default function MailForm() {
               className="min-h-[150px]"
               value={message} onChange={e => setMessage(e.target.value)} required
             />
-            <p className="text-xs text-muted-foreground">
-              {'Tip: Use placeholders like {{FirstName}} which match your CSV columns.'}
-            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
