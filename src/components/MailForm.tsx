@@ -28,10 +28,24 @@ import { cn } from '@/lib/utils';
 
 type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
 
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]); // Remove "data:*/*;base64," prefix
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
+
 export default function MailForm() {
   const { toast } = useToast();
 
   const [recipientsFile, setRecipientsFile] = useState<File | null>(null);
+  const [recipientsFileContent, setRecipientsFileContent] = useState<string>('');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -55,6 +69,7 @@ export default function MailForm() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       const content = event.target?.result as string;
+      setRecipientsFileContent(content);
       const result = await validateFileAction(content);
       if (result.isValid) {
         setValidationStatus('valid');
@@ -87,7 +102,7 @@ export default function MailForm() {
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (validationStatus !== 'valid' || !subject || !message) {
+    if (validationStatus !== 'valid' || !subject || !message || !recipientsFileContent) {
        toast({
         title: 'Form Incomplete',
         description: 'Please upload a valid recipient file and fill out the subject and message.',
@@ -97,11 +112,21 @@ export default function MailForm() {
     }
 
     setIsSending(true);
+
+    let attachmentPayload;
+    if (attachmentFile) {
+        const content = await fileToBase64(attachmentFile);
+        attachmentPayload = {
+            filename: attachmentFile.name,
+            content,
+        };
+    }
+
     const result = await sendEmailsAction({
         subject,
         message,
-        recipientsFileName: recipientsFile?.name || '',
-        attachmentFileName: attachmentFile?.name
+        recipientsFileContent: recipientsFileContent,
+        attachment: attachmentPayload
     });
     setIsSending(false);
     
@@ -112,6 +137,7 @@ export default function MailForm() {
         });
         // Reset form
         setRecipientsFile(null);
+        setRecipientsFileContent('');
         setAttachmentFile(null);
         setSubject('');
         setMessage('');
