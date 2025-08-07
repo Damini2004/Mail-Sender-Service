@@ -79,12 +79,12 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
 
       if (banner) {
           const bannerCid = 'banner-image@mailmerge.pro';
-          htmlMessage = `
+          htmlMessage += `
+            <br>
             <div style="text-align: center;">
               <img src="cid:${bannerCid}" alt="Banner" style="max-width: 100%; height: auto;" />
             </div>
-            <br>
-          ` + htmlMessage;
+          `;
           attachments.push({
               filename: banner.filename,
               path: banner.content,
