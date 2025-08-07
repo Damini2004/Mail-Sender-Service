@@ -421,7 +421,7 @@ export default function MailForm() {
       <form onSubmit={handleSend}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="recipients-file">Recipient List (.csv or .xlsx)</Label>
+            <Label htmlFor="recipients-file" className="text-base font-semibold tracking-tight">Recipient List (.csv or .xlsx)</Label>
             <div className="flex items-center gap-4">
                <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()} disabled={isProcessingFile}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -446,11 +446,11 @@ export default function MailForm() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="subject">Subject</Label>
+            <Label htmlFor="subject" className="text-base font-semibold tracking-tight">Subject</Label>
             <Input id="subject" placeholder="Your email subject line" value={subject} onChange={e => setSubject(e.target.value)} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
+            <Label htmlFor="message" className="text-base font-semibold tracking-tight">Message</Label>
             <Textarea
               id="message"
               placeholder={'Dear Prof. {{Lastname}},\n\nI am writing to you today...'}
@@ -458,12 +458,12 @@ export default function MailForm() {
               value={message} onChange={e => setMessage(e.target.value)} required
             />
             <p className="text-xs text-muted-foreground">
-              Tip: Use placeholders like {'{{FirstName}}'} which match your CSV columns.
+              {'Tip: Use placeholders like {{FirstName}} which match your CSV columns.'}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="attachment-file">Attachment (Optional)</Label>
+              <Label htmlFor="attachment-file" className="text-base font-semibold tracking-tight">Attachment (Optional)</Label>
                <div className="flex items-center gap-4">
                   <Button type="button" variant="outline" className="rounded-full" onClick={() => attachmentInputRef.current?.click()}>
                       <Paperclip className="mr-2 h-4 w-4" />
@@ -479,7 +479,7 @@ export default function MailForm() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="banner-file">Banner Image (Optional)</Label>
+              <Label htmlFor="banner-file" className="text-base font-semibold tracking-tight">Banner Image (Optional)</Label>
               <div className="flex items-center gap-4">
                 <Button type="button" variant="outline" className="rounded-full" onClick={() => bannerInputRef.current?.click()}>
                   <ImageIcon className="mr-2 h-4 w-4" />
@@ -514,7 +514,7 @@ export default function MailForm() {
 
           <div className="space-y-4 rounded-2xl border border-border bg-background/50 p-4">
             <div className="flex items-center justify-between">
-              <Label htmlFor="schedule-email" className="font-medium flex items-center gap-2">
+              <Label htmlFor="schedule-email" className="font-medium flex items-center gap-2 text-base font-semibold tracking-tight">
                 <Menu className="w-5 h-5 text-muted-foreground" />
                 Schedule for Later? (Optional)
               </Label>
