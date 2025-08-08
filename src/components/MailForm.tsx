@@ -536,7 +536,7 @@ export default function MailForm() {
           <div className="space-y-2">
             <Label htmlFor="message" className="text-base font-semibold tracking-tight">Message</Label>
             {editorLoaded && editorRef.current ? (
-              <div className='prose max-w-none [&_.ck-editor__main>.ck-editor__editable]:min-h-[250px]'>
+              <div className='prose max-w-none [&_.ck-editor__main>.ck-editor__editable]:h-[400px]'>
                   <CKEditor
                       editor={editorRef.current}
                       data={message}
@@ -547,7 +547,7 @@ export default function MailForm() {
                   />
               </div>
             ) : (
-                <div className="w-full min-h-[290px] p-4 border rounded-md animate-pulse bg-muted"></div>
+                <div className="w-full min-h-[400px] p-4 border rounded-md animate-pulse bg-muted"></div>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -676,5 +676,6 @@ export default function MailForm() {
   );
 }
 
+    
     
     
