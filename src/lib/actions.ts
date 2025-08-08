@@ -8,7 +8,11 @@ import Handlebars from 'handlebars';
 const sendEmailsActionSchema = z.object({
   subject: z.string(),
   message: z.string(),
-  recipientsFileContent: z.string(),
+  recipientsFileContent: z.string().optional(),
+  singleRecipient: z.object({
+    email: z.string(),
+    lastname: z.string(),
+  }).optional(),
   attachment: z.object({
     filename: z.string(),
     content: z.string(), // base64 encoded
@@ -28,7 +32,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     return { success: false, message: 'Invalid data provided.' };
   }
   
-  const { subject, recipientsFileContent, attachment, banner } = validation.data;
+  const { subject, recipientsFileContent, singleRecipient, attachment, banner } = validation.data;
   const defaultPrefix = '<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>';
   const fullMessage = defaultPrefix + validation.data.message;
 
@@ -54,8 +58,63 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
   const messageTemplate = Handlebars.compile(fullMessage, { noEscape: true });
   const subjectTemplate = Handlebars.compile(subject, { noEscape: true });
 
+  if (singleRecipient) {
+    const { email, lastname } = singleRecipient;
+    const recipientData = { Lastname: lastname, Email: email };
+    
+    const personalizedMessage = messageTemplate(recipientData);
+    const personalizedSubject = subjectTemplate(recipientData);
+    
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: `Pure Research Insights <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: personalizedSubject,
+      html: personalizedMessage,
+      attachments: [],
+    };
+
+    const attachments = mailOptions.attachments as nodemailer.Attachment[];
+
+    if (banner) {
+      const bannerCid = 'banner-image@mailmerge.pro';
+      mailOptions.html += `
+        <br>
+        <div style="text-align: center;">
+          <img src="cid:${bannerCid}" alt="Banner" style="max-width: 100%; height: auto;" />
+        </div>
+      `;
+      attachments.push({
+          filename: banner.filename,
+          path: banner.content,
+          cid: bannerCid,
+      });
+    }
+
+    if (attachment) {
+      attachments.push({
+          filename: attachment.filename,
+          content: attachment.content,
+          encoding: 'base64',
+      });
+    }
+    
+    try {
+      await transporter.sendMail(mailOptions);
+      transporter.close();
+      return { success: true, message: `Email successfully sent to ${email}.` };
+    } catch (error) {
+      console.error(`Failed to send email to ${email}:`, error);
+      transporter.close();
+      return { success: false, message: 'Failed to send email. Please check server logs for details.' };
+    }
+  }
+
 
   try {
+    if (!recipientsFileContent) {
+      return { success: false, message: 'No recipient file provided for bulk send.' };
+    }
+
     const lines = recipientsFileContent.trim().split('\n');
     const headerLine = lines.shift() || '';
     const header = headerLine.toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));

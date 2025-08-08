@@ -28,6 +28,8 @@ import {
   Menu,
   Sparkles,
   History,
+  Users,
+  User,
 } from 'lucide-react';
 import {
   Sheet,
@@ -46,6 +48,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 // Dynamically import CKEditor
 const CKEditor = dynamic(
@@ -76,6 +79,9 @@ export default function MailForm() {
   const { toast } = useToast();
   const defaultMessage = '<p></p>';
 
+  const [sendMode, setSendMode] = useState<'bulk' | 'single'>('bulk');
+  const [singleRecipientEmail, setSingleRecipientEmail] = useState('');
+  const [singleRecipientLastName, setSingleRecipientLastName] = useState('');
   const [recipientsFile, setRecipientsFile] = useState<File | null>(null);
   const [recipientsFileContent, setRecipientsFileContent] = useState<string>('');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -128,6 +134,8 @@ export default function MailForm() {
     setScheduleEmail(false);
     setScheduledDate(undefined);
     setScheduledTime('');
+    setSingleRecipientEmail('');
+    setSingleRecipientLastName('');
     if (recipientInputRef.current) recipientInputRef.current.value = '';
     if (attachmentInputRef.current) attachmentInputRef.current.value = '';
     if (bannerInputRef.current) bannerInputRef.current.value = '';
@@ -288,11 +296,14 @@ export default function MailForm() {
             return;
         }
     }
+    
+    const singleRecipient = sendMode === 'single' ? { email: singleRecipientEmail, lastname: singleRecipientLastName } : undefined;
 
     const result = await sendEmailsAction({
         subject,
         message,
-        recipientsFileContent,
+        recipientsFileContent: sendMode === 'bulk' ? recipientsFileContent : undefined,
+        singleRecipient,
         attachment: attachmentPayload,
         banner: bannerPayload,
     });
@@ -319,10 +330,22 @@ export default function MailForm() {
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!recipientsFileContent || !subject || !message) {
+
+    let isRecipientInfoMissing = false;
+    if (sendMode === 'bulk') {
+      if (!recipientsFileContent) {
+        isRecipientInfoMissing = true;
+      }
+    } else { // single mode
+      if (!singleRecipientEmail || !singleRecipientLastName) {
+        isRecipientInfoMissing = true;
+      }
+    }
+
+    if (isRecipientInfoMissing || !subject || !message) {
        toast({
         title: 'Form Incomplete',
-        description: 'Please upload a recipient file and fill out the subject and message.',
+        description: 'Please provide recipient information, a subject, and a message.',
         variant: 'destructive',
       });
       return;
@@ -391,7 +414,7 @@ export default function MailForm() {
     if (isSending) {
       return 'Sending...';
     }
-    return scheduleEmail ? 'Schedule Emails' : 'Send Emails';
+    return scheduleEmail ? 'Schedule Email' : 'Send Email';
   };
 
   return (
@@ -450,41 +473,62 @@ export default function MailForm() {
       </CardHeader>
       <form onSubmit={handleSend}>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="recipients-file" className="text-base font-semibold tracking-tight">Recipient List (.csv or .xlsx)</Label>
-            <div className="flex items-center gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()}>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload File
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Tip: Use placeholders like FirstName which match your CSV columns.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+          <Tabs value={sendMode} onValueChange={(value) => setSendMode(value as 'bulk' | 'single')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="bulk"><Users className="mr-2 h-4 w-4" />Bulk Upload</TabsTrigger>
+              <TabsTrigger value="single"><User className="mr-2 h-4 w-4" />Single Recipient</TabsTrigger>
+            </TabsList>
+            <TabsContent value="bulk" className="pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="recipients-file" className="text-base font-semibold tracking-tight">Recipient List (.csv or .xlsx)</Label>
+                <div className="flex items-center gap-4">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button type="button" variant="outline" className="rounded-full" onClick={() => recipientInputRef.current?.click()}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload File
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Tip: Use placeholders like FirstName which match your CSV columns.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
-              <Input
-                id="recipients-file"
-                type="file"
-                className="hidden"
-                ref={recipientInputRef}
-                onChange={handleRecipientFileChange}
-                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              />
-              <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
-                {renderFileStatusIndicator()}
-                {recipientsFile ? (
-                    <span className="truncate">{recipientsFile.name}</span>
-                ): (
-                    <span>No file selected</span>
-                )}
+                  <Input
+                    id="recipients-file"
+                    type="file"
+                    className="hidden"
+                    ref={recipientInputRef}
+                    onChange={handleRecipientFileChange}
+                    accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1 min-w-0">
+                    {renderFileStatusIndicator()}
+                    {recipientsFile ? (
+                        <span className="truncate">{recipientsFile.name}</span>
+                    ): (
+                        <span>No file selected</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </TabsContent>
+            <TabsContent value="single" className="pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="single-email" className="text-base font-semibold tracking-tight">Recipient Email</Label>
+                  <Input id="single-email" type="email" placeholder="professor@university.edu" value={singleRecipientEmail} onChange={e => setSingleRecipientEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="single-lastname" className="text-base font-semibold tracking-tight">Recipient Last Name</Label>
+                  <Input id="single-lastname" placeholder="Smith" value={singleRecipientLastName} onChange={e => setSingleRecipientLastName(e.target.value)} />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
           <div className="space-y-2">
             <Label htmlFor="subject" className="text-base font-semibold tracking-tight">Subject</Label>
             <Input id="subject" placeholder="Your email subject line" value={subject} onChange={e => setSubject(e.target.value)} required />
