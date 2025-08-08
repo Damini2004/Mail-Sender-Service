@@ -74,7 +74,7 @@ interface ScheduledJob {
 
 export default function MailForm() {
   const { toast } = useToast();
-  const defaultMessage = '<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>';
+  const defaultMessage = '<p></p>';
 
   const [recipientsFile, setRecipientsFile] = useState<File | null>(null);
   const [recipientsFileContent, setRecipientsFileContent] = useState<string>('');

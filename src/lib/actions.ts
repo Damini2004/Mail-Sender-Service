@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -27,7 +28,10 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     return { success: false, message: 'Invalid data provided.' };
   }
   
-  const { subject, message, recipientsFileContent, attachment, banner } = validation.data;
+  const { subject, recipientsFileContent, attachment, banner } = validation.data;
+  const defaultPrefix = '<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>';
+  const fullMessage = defaultPrefix + validation.data.message;
+
 
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
     return { success: false, message: 'Email credentials are not configured on the server.' };
@@ -47,7 +51,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
   });
   
   // Pre-compile handlebars templates for performance
-  const messageTemplate = Handlebars.compile(message, { noEscape: true });
+  const messageTemplate = Handlebars.compile(fullMessage, { noEscape: true });
   const subjectTemplate = Handlebars.compile(subject, { noEscape: true });
 
 
