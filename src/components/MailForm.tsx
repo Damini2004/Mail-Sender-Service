@@ -74,6 +74,7 @@ interface ScheduledJob {
 
 export default function MailForm() {
   const { toast } = useToast();
+  const defaultMessage = '<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>';
 
   const [recipientsFile, setRecipientsFile] = useState<File | null>(null);
   const [recipientsFileContent, setRecipientsFileContent] = useState<string>('');
@@ -81,7 +82,7 @@ export default function MailForm() {
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>');
+  const [message, setMessage] = useState(defaultMessage);
   const [editorLoaded, setEditorLoaded] = useState(false);
   const editorRef = useRef<any>(null);
 
@@ -123,7 +124,7 @@ export default function MailForm() {
     setBannerFile(null);
     setBannerPreview(null);
     setSubject('');
-    setMessage('<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>');
+    setMessage(defaultMessage);
     setScheduleEmail(false);
     setScheduledDate(undefined);
     setScheduledTime('');
