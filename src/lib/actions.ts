@@ -33,7 +33,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
   }
   
   const { subject, recipientsFileContent, singleRecipient, attachment, banner } = validation.data;
-  const defaultPrefix = '<p>Dear Professor {{Lastname}},</p><p>&nbsp;</p><p>I am writing to you today...</p>';
+  const defaultPrefix = '<p>Dear Professor {{Lastname}},</p>';
   const fullMessage = defaultPrefix + validation.data.message;
 
 
